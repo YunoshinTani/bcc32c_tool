@@ -34,6 +34,6 @@ bccs.bat を bcc.bat に変更したら使えます．
 
 ## その他の情報
 
-version : 1.0.0
-date    : 2025/05/26
-author  : Yunoshin Tani (git : YunoshinTani)
+version : 1.0.0  
+date    : 2025/05/26  
+author  : Yunoshin Tani (git : YunoshinTani)  
