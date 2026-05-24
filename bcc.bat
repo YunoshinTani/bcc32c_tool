@@ -1,61 +1,92 @@
 @echo off
 setlocal EnableDelayedExpansion
+chcp 65001 >nul
 
-REM ビルド対象ファイル（引数）
+REM Input source file
 set SRCFILE=%1
 
-REM コマンド説明
+REM Usage
 if "%SRCFILE%" == "" (
-    echo このコマンドの使い方:  bcc.bat  [ソースファイル名]  run任意
-    echo 第2引数 run に何かしら入力すると.exeが実行されます。
-    echo 必ず [親ディレクトリ]/[src] フォルダー上で実行してください。
-    echo ソースコードは [親ディレクトリ]\[src] に入れるのを想定しています。
-    echo 生成ファイル .exe は [親ディレクトリ]\bin に入れられます。ない場合は生成するか選べます。
+    echo Usage: bcc.bat [source file] [run]
+    echo If you pass any second argument, the generated .exe will run.
+    echo Run this from any folder under the src tree.
+    echo Source files are expected to live under the project src folder.
+    echo The generated .exe is placed in the project build folder.
     exit /b
 )
 if "%SRCFILE%" == "help" (
-    echo このコマンドの使い方:  bcc.bat  [ソースファイル名]  run任意
-    echo 第2引数 run に何かしら入力すると.exeが実行されます。
-    echo 必ず [親ディレクトリ]/[src] フォルダー上で実行してください。
-    echo ソースコードは [親ディレクトリ]\[src] に入れるのを想定しています。
-    echo 生成ファイル .exe は [親ディレクトリ]\bin に入れられます。ない場合は生成するか選べます。
+    echo Usage: bcc.bat [source file] [run]
+    echo If you pass any second argument, the generated .exe will run.
+    echo Run this from any folder under the src tree.
+    echo Source files are expected to live under the project src folder.
+    echo The generated .exe is placed in the project build folder.
     exit /b
 )
 
-REM 呼び出し元のカレントディレクトリを取得
+REM Current working directory
 set SRCDIR=%cd%
 
-REM SRCDIRから1階層上のディレクトリを取得
-for %%I in ("%SRCDIR%\..") do set "PROJECTDIR=%%~fI"
+REM Walk upward until app\bcc.bat is found, then treat that as the project root
+set "SEARCHDIR=%SRCDIR%"
 
-REM 拡張子なしで出力ファイル名を取得
-for %%f in (%SRCFILE%) do set OUTFILE=%%~nf
+:FIND_PROJECT_ROOT
+if exist "%SEARCHDIR%\app\bcc.bat" (
+    set "PROJECTDIR=%SEARCHDIR%"
+    goto PROJECT_ROOT_FOUND
+)
 
-REM 出力先フォルダがなかったら
-if not exist "%PROJECTDIR%\bin" (
-    set /p ANSWER=bin フォルダが存在しません。作成しますか? [y/n] 
+for %%I in ("%SEARCHDIR%\..") do set "PARENTDIR=%%~fI"
+if /i "%PARENTDIR%"=="%SEARCHDIR%" (
+    echo Could not find the project root. Run this from under the src tree.
+    exit /b
+)
+
+set "SEARCHDIR=%PARENTDIR%"
+goto FIND_PROJECT_ROOT
+
+:PROJECT_ROOT_FOUND
+
+REM Strip extension from the source file name
+for %%f in (%SRCFILE%) do (
+    set "SRCNAME=%%~nf"
+)
+
+REM Build a hyphenated prefix from the path below src (e.g. src\02\no2 -> 02-no2)
+set "AFTER=!SRCDIR:%PROJECTDIR%\src\=!"
+if "!AFTER!"=="!SRCDIR!" (
+    set "PREFIX="
+) else (
+    set "AFTER=!AFTER:\=-!"
+    set "PREFIX=!AFTER!-"
+)
+
+set "OUTFILE=!PREFIX!!SRCNAME!"
+
+REM Create build if needed
+if not exist "%PROJECTDIR%\build" (
+    set /p ANSWER=build folder does not exist. Create it? [y/n] 
     if /i "!ANSWER!" == "y" (
-        mkdir "%PROJECTDIR%\bin"
+        mkdir "%PROJECTDIR%\build"
     ) else (
-        echo bin フォルダが存在しないため、処理を中止します。
+        echo build folder does not exist. Aborting.
         exit /b
     )
 )
 
-REM コンパイル
-bcc32c %SRCDIR%\%SRCFILE% -o %PROJECTDIR%\bin\%OUTFILE%.exe
+REM Compile
+bcc32c "%SRCDIR%\%SRCFILE%" -o "%PROJECTDIR%\build\!OUTFILE!.exe"
 
-REM コンパイル結果を確認
+REM Check compile result
 if errorlevel 1 (
-    echo コンパイルに失敗しました。ざーこざーこ。
+    echo Compile failed.
     exit /b
 )
 
-REM 第2引数があったら生成ファイル実行
+REM Run the generated file if a second argument was provided
 if not "%2" == "" (
     echo ^>^>^>
-    echo 実行 : [ %OUTFILE%.exe ]
-    %PROJECTDIR%\bin\%OUTFILE%.exe
+    echo Run: [ !OUTFILE!.exe ]
+    "%PROJECTDIR%\build\!OUTFILE!.exe"
 )
 
 exit /b

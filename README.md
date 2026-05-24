@@ -35,6 +35,11 @@ bccs.bat を bcc.bat に変更したら使えます．
 
 ## その他の情報
 
-version : 1.0.0  
-date    : 2025/05/26  
-author  : Yunoshin Tani (git : YunoshinTani)  
+version : 2.0.0  
+date    : 2026/05/24  
+author  : Yunoshin Tani (git : YunoshinTani)
+
+注意:
+
+- バッチファイルは UTF-8 出力を有効にするため `chcp 65001` を使用します。エディタで保存する際は「UTF-8 (BOM付き)」で保存してください。
+- ソースが `src\02\no2` のような多階層にある場合、`bcc.bat` / `bccs.bat` は `src` 以下の相対パスをハイフンで結合して出力ファイル名に反映します（例: `02-no2-filename.exe`）。

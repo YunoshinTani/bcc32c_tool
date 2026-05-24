@@ -1,54 +1,88 @@
 @echo off
 setlocal EnableDelayedExpansion
+chcp 65001 >nul
 
-REM ビルド対象ファイル（引数）
+REM Input source file
 set SRCFILE=%1
 
-REM コマンド説明
+REM Usage
 if "%SRCFILE%" == "" (
-    echo このコマンドの使い方:  bccs.bat  [ソースファイル名]  run任意
-    echo 第2引数 run に何かしら入力すると.exeが実行されます。
-    echo 生成ファイル .exe は [現在のディレクトリ]\bin に入れられます。ない場合は生成するか選べます。
+    echo Usage: bccs.bat [source file] [run]
+    echo If you pass any second argument, the generated .exe will run.
+    echo The generated .exe is placed in the current directory's build folder.
     exit /b
 )
 if "%SRCFILE%" == "help" (
-    echo このコマンドの使い方:  bccs.bat  [ソースファイル名]  run任意
-    echo 第2引数 run に何かしら入力すると.exeが実行されます。
-    echo 生成ファイル .exe は [現在のディレクトリ]\bin に入れられます。ない場合は生成するか選べます。
+    echo Usage: bccs.bat [source file] [run]
+    echo If you pass any second argument, the generated .exe will run.
+    echo The generated .exe is placed in the current directory's build folder.
     exit /b
 )
 
-REM 呼び出し元のカレントディレクトリを取得
+REM Current working directory
 set SRCDIR=%cd%
 
-REM 拡張子なしで出力ファイル名を取得
-for %%f in (%SRCFILE%) do set OUTFILE=%%~nf
+REM Walk upward until app\bccs.bat is found, then treat that as the project root
+set "SEARCHDIR=%SRCDIR%"
 
-REM 出力先フォルダがなかったら
-if not exist "%SRCDIR%\bin" (
-    set /p ANSWER=bin フォルダが存在しません。作成しますか? [y/n] 
+:FIND_PROJECT_ROOT
+if exist "%SEARCHDIR%\app\bccs.bat" (
+    set "PROJECTDIR=%SEARCHDIR%"
+    goto PROJECT_ROOT_FOUND
+)
+
+for %%I in ("%SEARCHDIR%\..") do set "PARENTDIR=%%~fI"
+if /i "%PARENTDIR%"=="%SEARCHDIR%" (
+    echo Could not find the project root. Run this from under the src tree.
+    exit /b
+)
+
+set "SEARCHDIR=%PARENTDIR%"
+goto FIND_PROJECT_ROOT
+
+:PROJECT_ROOT_FOUND
+
+REM Strip extension from the source file name
+for %%f in (%SRCFILE%) do (
+    set "SRCNAME=%%~nf"
+)
+
+REM Build a hyphenated prefix from the path below src (e.g. src\02\no2 -> 02-no2)
+set "AFTER=!SRCDIR:%PROJECTDIR%\src\=!"
+if "!AFTER!"=="!SRCDIR!" (
+    set "PREFIX="
+) else (
+    set "AFTER=!AFTER:\=-!"
+    set "PREFIX=!AFTER!-"
+)
+
+set "OUTFILE=!PREFIX!!SRCNAME!"
+
+REM Create build if needed
+if not exist "%SRCDIR%\build" (
+    set /p ANSWER=build folder does not exist. Create it? [y/n] 
     if /i "!ANSWER!" == "y" (
-        mkdir "%SRCDIR%\bin"
+        mkdir "%SRCDIR%\build"
     ) else (
-        echo bin フォルダが存在しないため、処理を中止します。
+        echo build folder does not exist. Aborting.
         exit /b
     )
 )
 
-REM コンパイル
-bcc32c %SRCDIR%\%SRCFILE% -o %SRCDIR%\bin\%OUTFILE%.exe
+REM Compile
+bcc32c "%SRCDIR%\%SRCFILE%" -o "%SRCDIR%\build\!OUTFILE!.exe"
 
-REM コンパイル結果を確認
+REM Check compile result
 if errorlevel 1 (
-    echo コンパイルに失敗しました。どんまい、そんなこともあるさ。
+    echo Compile failed.
     exit /b
 )
 
-REM 第2引数があったら生成ファイル実行
+REM Run the generated file if a second argument was provided
 if not "%2" == "" (
     echo ^>^>^>
-    echo 実行 : [ %OUTFILE%.exe ]
-    %SRCDIR%\bin\%OUTFILE%.exe
+    echo Run: [ !OUTFILE!.exe ]
+    "%SRCDIR%\build\!OUTFILE!.exe"
 )
 
 exit /b
